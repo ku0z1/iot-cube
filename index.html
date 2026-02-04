@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>A.I.O.T. TACTICAL OS v27.2 [FIXED]</title>
+<title>A.I.O.T. TACTICAL OS v27.0 [SINGLE BUTTON]</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://www.youtube.com/iframe_api"></script>
@@ -22,6 +22,7 @@
     color: var(--text-main); font-family: 'Microsoft JhengHei', 'Consolas', sans-serif; 
     height: 100vh; overflow: hidden; display: flex;
   }
+  /* CRT 戰術掃描線效果 */
   body::before {
       content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
       background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
@@ -121,7 +122,7 @@
     <section id="view-ai" class="view-section">
         <div class="section-title">Jarvis 指揮核心 <button id="voice-toggle" class="btn" style="float:right; padding:5px 10px; font-size:0.8rem;" onclick="toggleVoiceOutput()">語音: 開</button></div>
         <div class="chat-container">
-            <div class="chat-display" id="chat-box"><div class="ai-msg">指揮官您好，金鑰檢測模組已啟動。</div></div>
+            <div class="chat-display" id="chat-box"><div class="ai-msg">指揮官您好，A.I.O.T. v27 已上線。請下達指令。</div></div>
             <div class="chat-input-bar">
                 <button class="btn mic-btn" id="btn-mic" onmousedown="startListening()" onmouseup="stopListening()" ontouchstart="startListening()" ontouchend="stopListening()"><i class="fas fa-microphone"></i></button>
                 <input type="text" id="user-input" class="chat-input" placeholder="輸入指令..." onkeypress="handleKey(event)">
@@ -179,11 +180,10 @@
 // ==========================================
 // ★★★ 關鍵區域：請在此填入您的 API Key ★★★
 // ==========================================
-const RAW_API_KEY = "AIzaSyAm4NKQ4lBtTvAXlO3KwJbBtxjMIzlK7Qs"; 
-const GEMINI_API_KEY = RAW_API_KEY.trim(); // 自動清除空白
+const GEMINI_API_KEY = "AIzaSyBI0S-5hbD7ps0MZvs0JvkscqdlunjiRnU"; 
 // ==========================================
 
-const AI_MODEL = "gemini-2.0-flash"; // 維持您指定的模型
+const AI_MODEL = "gemini-2.0-flash";
 let currentTemp="--", currentHumi="--", currentAir="--", currentDist="--", currentRain="--";
 let historyData=[], port, reader, writer, isHardwareConnected=false, chart;
 let userLat=null, userLon=null;
@@ -413,13 +413,12 @@ async function askJarvis() {
     try {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${AI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
         const d = await res.json(); 
-        if(d.error) { throw new Error(JSON.stringify(d.error)); }
+        if(d.error) { throw new Error(d.error.message); }
         const t = d.candidates[0].content.parts[0].text;
         display.innerHTML += `<div class="ai-msg">${marked.parse(t)}</div>`; speak(t);
     } catch (e) { 
-        display.innerHTML += `<div class="ai-msg debug-err">[ERR] ${e.message}</div>`; 
+        display.innerHTML += `<div class="ai-msg">[ERR] ${e.message}。請檢查金鑰設定。</div>`; 
         console.error(e);
-        speak("系統錯誤，請檢查螢幕日誌。");
     }
     display.scrollTop = display.scrollHeight; 
 }
