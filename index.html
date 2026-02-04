@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>A.I.O.T. TACTICAL OS v25.1 [FIXED]</title>
+<title>A.I.O.T. TACTICAL OS v27.0 [SINGLE BUTTON]</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://www.youtube.com/iframe_api"></script>
@@ -22,6 +22,7 @@
     color: var(--text-main); font-family: 'Microsoft JhengHei', 'Consolas', sans-serif; 
     height: 100vh; overflow: hidden; display: flex;
   }
+  /* CRT 戰術掃描線效果 */
   body::before {
       content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
       background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
@@ -29,6 +30,7 @@
       z-index: 999; background-size: 100% 2px, 3px 100%; pointer-events: none;
   }
   #boot-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: 'Courier New', monospace; color: var(--accent); cursor: pointer; }
+  
   .sidebar-nav { width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px; z-index: 100; }
   .brand { font-size: 1.2rem; font-weight: bold; color: var(--accent); margin-bottom: 30px; letter-spacing: 2px; }
   .nav-item { padding: 15px; margin-bottom: 5px; cursor: pointer; border-radius: 8px; color: var(--text-dim); transition: 0.2s; display: flex; align-items: center; gap: 15px; font-size: 1rem; }
@@ -37,10 +39,12 @@
   .status-bar { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); font-size: 0.8rem; color: #666; }
   .status-dot { width: 8px; height: 8px; background: #555; border-radius: 50%; display: inline-block; margin-right: 5px; }
   .status-dot.online { background: var(--accent); box-shadow: 0 0 5px var(--accent); }
+
   .main-content { flex: 1; padding: 30px; overflow-y: auto; position: relative; background-image: radial-gradient(circle, #151515 1px, transparent 1px); background-size: 30px 30px; }
   .view-section { display: none; animation: fadeIn 0.3s; }
   .view-section.active { display: block; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
   .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 25px; margin-bottom: 20px; }
   .section-title { font-size: 1.5rem; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; color: #fff; }
   .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
@@ -50,10 +54,12 @@
   .source-tag { position: absolute; top: 8px; right: 8px; font-size: 0.6rem; font-family: 'Courier New'; padding: 2px 6px; border-radius: 4px; border: 1px solid #333; color: #555; }
   .source-tag.sensor { color: var(--accent); border-color: var(--accent); background: rgba(16,185,129,0.1); }
   .source-tag.cloud { color: var(--cloud); border-color: var(--cloud); background: rgba(139,92,246,0.1); }
+  
   .tactical-split { display: flex; gap: 20px; height: 400px; margin-top: 20px; flex-wrap: wrap; }
   .chart-col { flex: 2; position: relative; height: 100%; min-width: 300px; }
   .map-col { flex: 1; height: 100%; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; position: relative; background: #000; min-width: 250px; }
   #map { width: 100%; height: 100%; z-index: 1; }
+  
   .chat-container { height: 60vh; display: flex; flex-direction: column; background: #050505; border: 1px solid var(--border); border-radius: 8px; }
   .chat-display { flex: 1; padding: 20px; overflow-y: auto; font-size: 1rem; line-height: 1.6; color: #ccc; }
   .chat-input-bar { padding: 15px; background: #111; border-top: 1px solid #333; display: flex; gap: 10px; }
@@ -61,6 +67,7 @@
   .btn { background: var(--accent); color: #000; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
   .mic-btn.listening { background: #ff4444 !important; color: white !important; border-color: #ff4444 !important; animation: pulse 1s infinite; }
   @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,68,68,0.7); } 100% { box-shadow: 0 0 0 15px rgba(255,68,68,0); } }
+
   .sonic-panel { text-align: center; padding: 20px; }
   .yt-screen-frame { width: 100%; max-width: 640px; height: 360px; margin: 20px auto; background: #000; border: 2px solid #333; border-radius: 4px; position: relative; overflow: hidden; }
   #yt-player { width: 100%; height: 100%; display: block; }
@@ -72,6 +79,7 @@
   .control-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
   .ctl-btn { background: transparent; border: 1px solid var(--accent); color: var(--accent); padding: 15px; cursor: pointer; transition: 0.2s; text-align: center; border-radius: 6px; }
   .ctl-btn:hover { background: var(--accent); color: #000; }
+  
   ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: #000; } ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
 </style>
 </head>
@@ -114,7 +122,7 @@
     <section id="view-ai" class="view-section">
         <div class="section-title">Jarvis 指揮核心 <button id="voice-toggle" class="btn" style="float:right; padding:5px 10px; font-size:0.8rem;" onclick="toggleVoiceOutput()">語音: 開</button></div>
         <div class="chat-container">
-            <div class="chat-display" id="chat-box"><div class="ai-msg">指揮官您好。</div></div>
+            <div class="chat-display" id="chat-box"><div class="ai-msg">指揮官您好，A.I.O.T. v27 已上線。請下達指令。</div></div>
             <div class="chat-input-bar">
                 <button class="btn mic-btn" id="btn-mic" onmousedown="startListening()" onmouseup="stopListening()" ontouchstart="startListening()" ontouchend="stopListening()"><i class="fas fa-microphone"></i></button>
                 <input type="text" id="user-input" class="chat-input" placeholder="輸入指令..." onkeypress="handleKey(event)">
@@ -169,7 +177,12 @@
 </main>
 
 <script>
+// ==========================================
+// ★★★ 關鍵區域：請在此填入您的 API Key ★★★
+// ==========================================
 const GEMINI_API_KEY = "AIzaSyAm4NKQ4lBtTvAXlO3KwJbBtxjMIzlK7Qs"; 
+// ==========================================
+
 const AI_MODEL = "gemini-2.0-flash";
 let currentTemp="--", currentHumi="--", currentAir="--", currentDist="--", currentRain="--";
 let historyData=[], port, reader, writer, isHardwareConnected=false, chart;
@@ -202,7 +215,7 @@ function startSystem() {
     initChart(); initMap(); initSpeechRecognition();
     manualSyncOnline(); 
     setInterval(updateSimData, 1000); 
-    speak("系統啟動。已鎖定當前座標。");
+    speak("系統已啟動。等待指令。");
 }
 
 function updateSimData() {
@@ -298,7 +311,6 @@ async function manualSyncOnline() {
     }
 }
 
-// ================= Standard Functions =================
 function setTag(id, text, type) { const el = document.getElementById('tag-'+id); if(el) { el.innerText = text; el.className = "source-tag " + type; } }
 function downloadCSV() {
     if(historyData.length === 0) { alert("無數據"); return; }
@@ -328,9 +340,8 @@ async function connectSerial() {
 async function readLoop() { let buf = ""; while (true) { const { value, done } = await reader.read(); if (done) break; buf += value; let lines = buf.split('\n'); buf = lines.pop(); for (let l of lines) parseHW(l.trim()); } }
 async function sendCmd(cmd) { if (writer) await writer.write(cmd + "\n"); writeLog(`指令: ${cmd}`); }
 
-// ================= Music (API FIXED) =================
+// ================= Music (Fixed) =================
 function onYouTubeIframeAPIReady() { 
-    // ★ 關鍵修正：加入 origin 參數，解決大部分 Error 150/153 ★
     const currentOrigin = window.location.origin;
     ytPlayer = new YT.Player('yt-player', { 
         height:'100%', 
@@ -339,19 +350,16 @@ function onYouTubeIframeAPIReady() {
         playerVars:{
             'playsinline':1, 
             'controls':1,
-            'origin': currentOrigin  // 讓 YouTube 知道請求來源
+            'origin': currentOrigin 
         }, 
         events:{'onStateChange': onPlayerStateChange, 'onError': onPlayerError} 
     }); 
 }
-
 function onPlayerError(e) { 
-    // 移除自動跳過，僅顯示錯誤，讓用戶決定
     writeLog(`YouTube 錯誤 [${e.data}]`);
     document.getElementById('track-name').innerText = "播放錯誤 (版權/限制)";
     document.getElementById('track-name').style.color = "#ff4444";
 }
-
 function onPlayerStateChange(e) { 
     const viz=document.getElementById('viz-bars'); const t=document.getElementById('track-name');
     if (e.data == YT.PlayerState.PLAYING) { viz.classList.add('playing'); t.style.color="#fff"; } 
@@ -404,9 +412,14 @@ async function askJarvis() {
     const prompt = `你是戰術AI。位置:${userLat},${userLon}。數據:T=${currentTemp},H=${currentHumi},Rain=${currentRain}%,AQI=${currentAir}。User:${q}`;
     try {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${AI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
-        const d = await res.json(); const t = d.candidates[0].content.parts[0].text;
+        const d = await res.json(); 
+        if(d.error) { throw new Error(d.error.message); }
+        const t = d.candidates[0].content.parts[0].text;
         display.innerHTML += `<div class="ai-msg">${marked.parse(t)}</div>`; speak(t);
-    } catch (e) { display.innerHTML += `<div class="ai-msg">[ERR] 離線。</div>`; }
+    } catch (e) { 
+        display.innerHTML += `<div class="ai-msg">[ERR] ${e.message}。請檢查金鑰設定。</div>`; 
+        console.error(e);
+    }
     display.scrollTop = display.scrollHeight; 
 }
 function switchView(viewId) {
@@ -426,4 +439,3 @@ function handleKey(e) { if(e.key === 'Enter') askJarvis(); }
 </script>
 </body>
 </html>
-
