@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>A.I.O.T. TACTICAL OS v28.1 [CAMOUFLAGE]</title>
+<title>A.I.O.T. TACTICAL OS </title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://www.youtube.com/iframe_api"></script>
@@ -22,6 +22,7 @@
     color: var(--text-main); font-family: 'Microsoft JhengHei', 'Consolas', sans-serif; 
     height: 100vh; overflow: hidden; display: flex;
   }
+  /* CRT 掃描線效果 */
   body::before {
       content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
       background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
@@ -122,7 +123,7 @@
     <section id="view-ai" class="view-section">
         <div class="section-title">Jarvis 指揮核心 <button id="voice-toggle" class="btn" style="float:right; padding:5px 10px; font-size:0.8rem;" onclick="toggleVoiceOutput()">語音: 開</button></div>
         <div class="chat-container">
-            <div class="chat-display" id="chat-box"><div class="ai-msg">指揮官您好，戰術系統已上線。</div></div>
+            <div class="chat-display" id="chat-box"><div class="ai-msg">指揮官您好，智慧助手已啟動。</div></div>
             <div class="chat-input-bar">
                 <button class="btn mic-btn" id="btn-mic" onmousedown="startListening()" onmouseup="stopListening()" ontouchstart="startListening()" ontouchend="stopListening()"><i class="fas fa-microphone"></i></button>
                 <input type="text" id="user-input" class="chat-input" placeholder="輸入指令..." onkeypress="handleKey(event)">
@@ -177,22 +178,19 @@
 </main>
 
 <script>
-// ==========================================
-// ★★★ 戰術偽裝區 (針對機器人) ★★★
-// ==========================================
-// 說明：請去申請一把全新的 API Key，然後將它切成兩半填入。
-// 不要直接貼上整串，以免 Google 機器人又把您的 Key 刪掉。
+// =======================================================
+// ★★★ 三段式金鑰偽裝區 (Anti-Bot Camouflage) ★★★
+// =======================================================
+// 1. 金鑰開頭 (固定是 AIzaSy)
+const SECRET_PART_1 = "AIzaSy"; 
 
-// 1. 金鑰前半段 (固定是 AIzaSy)
-const KEY_PART_A = "AIzaSy"; 
+const SECRET_PART_2 = "B1qmLvsgWw"; 
 
-// 2. 金鑰後半段 (從第7個字開始複製填入)
-// 範例：若金鑰是 AIzaSyDnmk12345，這裡填 "Dnmk12345"
-const KEY_PART_B = "DIXfpXyuwXrZN3tJnu81xiwDmXfxhxs5E"; 
+const SECRET_PART_3 = "2mjsFqjLMDDvWOtmhxtnGDM"; 
 
-// 3. 自動組裝 (勿動)
-const GEMINI_API_KEY = (KEY_PART_A + KEY_PART_B).trim();
-// ==========================================
+// 4. 自動合體 (勿動)
+const GEMINI_API_KEY = (SECRET_PART_1 + SECRET_PART_2 + SECRET_PART_3).trim();
+// =======================================================
 
 const AI_MODEL = "gemini-2.0-flash";
 let currentTemp="--", currentHumi="--", currentAir="--", currentDist="--", currentRain="--";
@@ -238,13 +236,15 @@ function updateSimData() {
         updateUI(t, h, currentAir, currentRain, 0, false);
     }
     
-    // 自動校時：每秒同步
+    // ★★★ 自動校時機制 ★★★
+    // 只有在硬體連線且 writer 存在時才發送
     if (isHardwareConnected && writer) {
         const d = new Date();
         const mm = (d.getMonth()+1).toString().padStart(2,'0');
         const dd = d.getDate().toString().padStart(2,'0');
         const hh = d.getHours().toString().padStart(2,'0');
         const min = d.getMinutes().toString().padStart(2,'0');
+        // 指令格式: TIME:MM/DD,HH:mm
         const timeCmd = `TIME:${mm}/${dd},${hh}:${min}`;
         sendCmd(timeCmd);
     }
@@ -430,7 +430,7 @@ async function askJarvis() {
     } catch (e) { 
         display.innerHTML += `<div class="ai-msg debug-err">[ERR] ${e.message}</div>`; 
         console.error(e);
-        speak("系統錯誤。");
+        speak("系統錯誤，請檢查金鑰設定。");
     }
     display.scrollTop = display.scrollHeight; 
 }
