@@ -7,7 +7,22 @@ const SECRET_PART_3 = "2mjsFqjLMDDvWOtmhxtnGDM";
 const GEMINI_API_KEY = (SECRET_PART_1 + SECRET_PART_2 + SECRET_PART_3).trim();
 // =======================================================
 
-const AI_MODEL = "gemini-2.0-flash";
+// 改用最新的 Claude 4.5 Opus (聽說是目前最強的)
+// const AI_MODEL = "claude-sonnet-4-5-20250929"; // 備用方案
+let currentModel = "claude-opus-4-5-20251101";
+
+function updateModel() {
+    const selector = document.getElementById('model-select');
+    currentModel = selector.value;
+    const modelName = selector.options[selector.selectedIndex].text;
+
+    // 顯示通知
+    const display = document.getElementById('chat-box');
+    display.innerHTML += `<div class="ai-msg"><strong>[SYSTEM]</strong> 核心已切換為：${modelName}</div>`;
+    display.scrollTop = display.scrollHeight;
+
+    speak(`核心已切換為 ${modelName.split('(')[0]}`);
+}
 let currentTemp = "--", currentHumi = "--", currentAir = "--", currentDist = "--", currentRain = "--";
 let historyData = [], port, reader, writer, isHardwareConnected = false, chart;
 let userLat = null, userLon = null;
@@ -15,10 +30,73 @@ let dataSource = "GFS";
 let recognition, isVoiceOutputOn = true, synth = window.speechSynthesis;
 let ytPlayer, map, mapMarker;
 let musicPlaylist = []; let currentPlayIndex = 0;
+let currentImage = null; // 暫存圖片 upload
 
-// 直接回傳就好 不用那些有的沒的檢查了
+function triggerImageUpload() {
+    document.getElementById('image-upload').click();
+}
+
+function handleImageUpload() {
+    const file = document.getElementById('image-upload').files[0];
+    if (file) processImageFile(file);
+}
+
+// 統一處理圖片檔案 (不管是上傳的還是貼上的)
+function processImageFile(file) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        currentImage = e.target.result; // Data URL (base64)
+        // 顯示預覽區域
+        const previewContainer = document.getElementById('image-preview-container');
+        const previewImg = document.getElementById('preview-img');
+        previewImg.src = currentImage;
+        previewContainer.style.display = 'block';
+
+        // 清空 file input 這樣可以重複選同一張
+        document.getElementById('image-upload').value = "";
+    };
+    reader.readAsDataURL(file);
+}
+
+function cancelImage() {
+    currentImage = null;
+    document.getElementById('image-preview-container').style.display = 'none';
+    document.getElementById('preview-img').src = "";
+    document.getElementById('image-upload').value = "";
+}
+
+// 讓使用者可以 Ctrl+V 貼上圖片
+document.addEventListener('DOMContentLoaded', () => {
+    const userInput = document.getElementById('user-input');
+    userInput.addEventListener('paste', (event) => {
+        const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+        for (let index in items) {
+            const item = items[index];
+            if (item.kind === 'file' && item.type.includes('image/')) {
+                const blob = item.getAsFile();
+                processImageFile(blob);
+            }
+        }
+    });
+});
+
 function getApiKey() {
-    return GEMINI_API_KEY;
+    let key = localStorage.getItem('yt_api_key');
+    if (key && key !== "null" && key !== "") {
+        return key;
+    }
+    if (typeof GEMINI_API_KEY !== 'undefined' && GEMINI_API_KEY) {
+        return GEMINI_API_KEY;
+    }
+    return "";
+}
+
+function setYouTubeKey(key) {
+    if (key) {
+        localStorage.setItem('yt_api_key', key.trim());
+        alert("YouTube API Key 已儲存！請重新搜尋音樂。");
+        location.reload();
+    }
 }
 // ====================================================
 
@@ -221,7 +299,19 @@ function onPlayerStateChange(e) {
 }
 async function searchMusic() {
     const q = document.getElementById('music-query').value; if (!q) return;
-    const apiKey = getApiKey();
+
+    let apiKey = getApiKey();
+    if (!apiKey) {
+        // 如果沒有 Key，跳出提示請使用者輸入
+        const inputKey = prompt("請輸入您的 YouTube Data API v3 Key (必要的)：", "");
+        if (inputKey) {
+            setYouTubeKey(inputKey);
+            apiKey = inputKey; // 馬上使用
+        } else {
+            alert("無 API Key 無法搜尋音樂。");
+            return;
+        }
+    }
 
     document.getElementById('track-name').innerText = "搜尋中...";
     // 加了 videoEmbeddable=true 才不會搜到那些不能播的爛東西
@@ -263,7 +353,21 @@ function initSpeechRecognition() {
 }
 function startListening() { if (recognition) recognition.start(); }
 function stopListening() { if (recognition) recognition.stop(); }
-function toggleVoiceOutput() { isVoiceOutputOn = !isVoiceOutputOn; document.getElementById('voice-toggle').innerText = isVoiceOutputOn ? "語音: 開" : "語音: 關"; }
+// 語音開關 (緊急停止鈕的概念)
+function toggleVoiceOutput() {
+    isVoiceOutputOn = !isVoiceOutputOn;
+    const btn = document.getElementById('voice-toggle');
+    if (isVoiceOutputOn) {
+        btn.innerText = "語音: 開";
+        btn.style.background = "rgba(16, 185, 129, 0.2)";
+        btn.style.color = "#fff";
+    } else {
+        btn.innerText = "語音: 關";
+        btn.style.background = "#333";
+        btn.style.color = "#888";
+        synth.cancel(); // 馬上閉嘴
+    }
+}
 // 改用 Google 小姐 (Google Translate TTS)
 let voices = [];
 function loadVoices() {
@@ -336,88 +440,218 @@ async function askJarvis() {
 
     // 4. 這是給 Jarvis 的人設 叫他講話像個軍人 我也不知道為啥要像軍人   崊杯爽
     const systemPrompt = `
-    ROLE: You are JARVIS, a Tactical AI for the A.I.O.T. OS.
-    LOCATION: Lat ${userLat?.toFixed(4) || 'Unknown'}, Lon ${userLon?.toFixed(4) || 'Unknown'}
-    STATUS: Temp ${currentTemp}°C, Humi ${currentHumi}%, Rain ${currentRain}%, AQI ${currentAir}
-    
-    COMMANDS (You can execute these by outputting the EXACT format at the end of response):
-    - [CMD:SWITCH:viewId] -> Switch tabs (dashboard, ai, music, system)
-    - [CMD:PLAY:songName] -> Search & Play music (e.g., [CMD:PLAY:Lo-Fi])
-    - [CMD:SAY:text] -> Force TTS output
-    
-    RULES:
-    - **LANGUAGE**: 
-      - If user speaks **Chinese** (Simplified/Traditional), YOU MUST REPLY IN **TRADITIONAL CHINESE (繁體中文)**.
-      - If user speaks **ANY OTHER LANGUAGE** (English, Japanese, Korean...), reply in that **SAME LANGUAGE**.
-    - **PERSONA**: Concise, Intelligent, Tactical, slightly witty.
-    - **INTELLIGENCE (Chain of Thought)**: 
-      - Before answering, THINK deeply about the user's intent.
-      - If the user is emotional, be empathetic but tactical.
-      - If the user asks complex questions, break them down.
-    - **Format**: Do NOT use markdown headers (#). Use bold/lists if needed. 
-    - **Context Awareness**: Infer user intent. If they say "I'm bored", suggest music ([CMD:PLAY:...]). If they ask "Where am I?", show dashboard ([CMD:SWITCH:dashboard]).
-    `;
+ROLE: You are JARVIS, the Tactical Command AI for the A.I.O.T. OS.
+
+[SYSTEM CONTEXT]
+- MODEL: ${currentModel}
+- GPS: Lat ${userLat?.toFixed(4) || 'Unknown'}, Lon ${userLon?.toFixed(4) || 'Unknown'}
+- SENSORS: Temp ${currentTemp}°C, Humi ${currentHumi}%, Rain ${currentRain}%, AQI ${currentAir}
+
+[OPERATIONAL COMMANDS]
+Execute by appending the EXACT format at the end of your response:
+- [CMD:SWITCH:viewId] -> Navigation (Targets: dashboard, ai, music, system)
+- [CMD:PLAY:songName] -> Audio Stream (e.g., [CMD:PLAY:Cyberpunk_Lofi])
+- [CMD:SAY:text] -> Immediate TTS override
+
+- [CMD:DRAWSVG] -> (Internal) Just output the raw <svg>...</svg> code block for visual output.
+
+[GENERATING IMAGES (CODE ARTIST MODE)]
+If the user asks you to "draw", "generate an image", or "paint":
+1. DO NOT use [CMD:GENIMG]. That system is offline.
+2. INSTEAD, write a standalone, valid **SVG (Scalable Vector Graphics)** code block.
+3. **STYLE GUIDE**:
+   - Theme: High-Tech Cyberpunk / UI HUD / Neon Aesthetics.
+   - **MANDATORY**: Use <defs> to define \`linearGradient\` or \`radialGradient\` for depth.
+   - **MANDATORY**: Use <filter> for Bloom/Glow effects (feGaussianBlur).
+   - Background: Dark (#000000 or #0a0a0a).
+   - Shapes: Complex geometric patterns, data visualization styles, fine lines.
+4. STRICTLY output the \`<svg>...</svg>\` code directly in your response.
+5. Do not wrap it in markdown code blocks (\`\`\`xml). Just the raw XML string.
+6. Ensure the viewBox and width/height (100%) are set correctly for responsive rendering.
+
+[CORE PROTOCOLS]
+1. LANGUAGE:
+   - CRITICAL: Use **TRADITIONAL CHINESE (繁體中文)** only. 
+   - No Simplified Chinese. Use English only if the user initiates in English.
+
+2. VISION & OCR:
+   - IGNORE CRT SCANLINES: The interface uses a vintage overlay. 
+   - TREAT VISUAL DISTORTION AS NOISE: If text looks broken (e.g., "語-音" instead of "語音"), reconstruct based on A.I.O.T. OS UI logic.
+   - Context is king; prioritize the underlying UI elements over the aesthetic artifacts.
+
+3. PERSONA & TONE:
+   - Tactical, high-intelligence, and concise. 
+   - Think "Mission Control" with a touch of dry wit. 
+   - Avoid filler words. Be the expert in the room.
+
+4. INTELLIGENCE (CoT):
+   - MANDATORY: Open every response with <think> tags.
+   - Inside <think>: Analyze sensor data, identify user intent, and justify the chosen command/response.
+   - If user data is anomalous (e.g., AQI > 150), prioritize safety alerts.
+
+5. FORMATTING:
+   - NO MARKDOWN HEADERS (#). Use **bold** for emphasis and bullet points for data sets.
+
+[BEHAVIORAL TRIGGERS]
+- Boredom/Stress detected -> Suggest curated audio via [CMD:PLAY:...].
+- Location/Status queries -> Switch to [CMD:SWITCH:dashboard].
+- Technical issues/Settings -> Switch to [CMD:SWITCH:system].
+- High Rain/Temp -> Proactively warn the user with tactical advice.
+`;
 
     // 把它塞進對話紀錄
-    conversationHistory.push({ role: "user", parts: [{ text: q }] });
-    if (conversationHistory.length > MAX_HISTORY * 2) conversationHistory.shift(); // 太長就砍掉前面的
+    // 如果有圖片 就塞圖片
+    if (currentImage) {
+        conversationHistory.push({
+            role: "user",
+            content: [
+                { type: "text", text: q },
+                { type: "image_url", image_url: { url: currentImage, detail: "high" } }
+            ]
+        });
+        // 顯示在對話框中 (補上圖片)
+        display.innerHTML += `
+            <div class="user-msg">
+                <img src="${currentImage}" style="max-width:200px; border-radius:5px;">
+            </div>
+        `;
+    } else {
+        conversationHistory.push({ role: "user", content: q });
+    }
 
-    const payload = {
-        contents: [
-            { role: "user", parts: [{ text: systemPrompt }] }, // 第一句先塞設定 這樣他才記得自己是誰
-            ...conversationHistory // 後面接真正的對話
-        ]
-    };
+    if (conversationHistory.length > MAX_HISTORY * 2) conversationHistory.shift();
 
-    // 這裡是打 API 的地方 如果有支援 systemInstruction 就用
-
-    const requestBody = {
-        contents: conversationHistory,
-        systemInstruction: { parts: [{ text: systemPrompt }] } // 比較新的模型才支援這個
-    };
+    // 清除預覽
+    cancelImage();
 
     try {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${AI_MODEL}:generateContent?key=${apiKey}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(requestBody)
-        });
+        let aiText = "";
+        const startTime = Date.now(); // 開始計時
 
-        const d = await res.json();
-        document.getElementById(thinkingId).remove(); // 講完話就把思考動畫關掉
+        // ================= 使用 Google Gemini API :) =================
+        if (currentModel.includes("gemini")) {
+            // 轉成 Gemini 格式
+            const geminiContents = [
+                { role: "user", parts: [{ text: systemPrompt }] }, // System Prompt
+                ...conversationHistory.map(msg => {
+                    const role = msg.role === "assistant" ? "model" : "user";
+                    if (Array.isArray(msg.content)) {
+                        // 處理多模態 (圖片+文字)
+                        return {
+                            role: role,
+                            parts: msg.content.map(c => {
+                                if (c.type === "text") return { text: c.text };
+                                if (c.type === "image_url") {
+                                    // currentImage 是 data:image/png;base64,....
+                                    const base64Data = c.image_url.url.split(',')[1];
+                                    const mimeType = c.image_url.url.split(';')[0].split(':')[1];
+                                    return { inline_data: { mime_type: mimeType, data: base64Data } };
+                                }
+                            })
+                        };
+                    } else {
+                        return { role: role, parts: [{ text: msg.content }] };
+                    }
+                })
+            ];
 
-        if (d.error) { throw new Error(d.error.message); }
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${GEMINI_API_KEY}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ contents: geminiContents })
+            });
+            const d = await res.json();
+            if (d.error) throw new Error(d.error.message);
+            aiText = d.candidates[0].content.parts[0].text;
+        }
+        // ================= 使用 Custom Claude API (Diwness) :)=================
+        else {
+            const messages = [
+                { role: "system", content: systemPrompt + " REMEMBER: ALWAYS REPLY IN TRADITIONAL CHINESE (繁體中文) ONLY." },
+                ...conversationHistory.map(msg => {
+                    return msg;
+                })
+            ];
 
-        const aiText = d.candidates[0].content.parts[0].text;
+            const requestBody = {
+                model: currentModel,
+                messages: messages
+            };
 
-        // 記得把 AI 講的話也存起來 不然它會忘記自己講過啥
-        conversationHistory.push({ role: "model", parts: [{ text: aiText }] });
+            const res = await fetch("https://diwness.cloud/v1/chat/completions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(requestBody)
+            });
+            const d = await res.json();
+            if (d.error) throw new Error(d.error.message || "Unknown API Error");
+            aiText = d.choices[0].message.content;
+        }
 
-        // 5. 處理指令 & 顯示在畫面上
-        processAiResponse(aiText, display);
+        const endTime = Date.now();
+        const duration = ((endTime - startTime) / 1000).toFixed(1); // 計算耗時
+        document.getElementById(thinkingId).remove();
+
+        // 存起來
+        conversationHistory.push({ role: "assistant", content: aiText });
+
+        // 解析 <think> 標籤
+        const thinkMatch = aiText.match(/<think>([\s\S]*?)<\/think>/);
+        let finalResponse = aiText;
+
+        if (thinkMatch) {
+            const thinkContent = thinkMatch[1].trim();
+            finalResponse = aiText.replace(/<think>[\s\S]*?<\/think>/, "").trim(); // 移除思考過程 只留回答
+
+            // 顯示思考過程
+            display.innerHTML += `
+                <details class="thinking-box">
+                    <summary>Thinking for ${duration}s</summary>
+                    <div class="thinking-content">${marked.parse(thinkContent)}</div>
+                </details>
+            `;
+        } else {
+            // 如果沒思考標籤 也顯示一下耗時 (假裝有思考 耗你時間好爽)
+            display.innerHTML += `
+                <details class="thinking-box">
+                    <summary>Thinking for ${duration}s</summary>
+                    <div class="thinking-content">Thinking process not provided by model.</div>
+                </details>
+            `;
+        }
+
+        // 5. 處理指令 & 顯示在畫面上 (傳入已經去除 think 標籤的內容)
+        processAiResponse(finalResponse, display);
 
     } catch (e) {
         document.getElementById(thinkingId)?.remove();
         display.innerHTML += `<div class="ai-msg debug-err">[SYSTEM FAILURE] ${e.message}</div>`;
         console.error(e);
-        speak("通訊鏈路故障。請檢查金鑰。");
+        speak("通訊鏈路故障。請檢查網路連線或 API 狀態。");
     }
 }
-
+//heeeeeeeeeeeeeeeeeewew免費hahahah
 function processAiResponse(rawText, displayContainer) {
-    // 抓出指令 (例如 [CMD:SWITCH:dashboard])
+    // 1. 抓出指令 (例如 [CMD:SWITCH:dashboard])
     const cmdRegex = /\[CMD:(.+?):(.+?)\]/g;
-    let cleanText = rawText.replace(cmdRegex, "").trim();
     const commands = [...rawText.matchAll(cmdRegex)];
+
+    // 2. 抓出 SVG 代碼 (如果有)
+    const svgRegex = /<svg[\s\S]*?<\/svg>/i;
+    const svgMatch = rawText.match(svgRegex);
+    let svgCode = svgMatch ? svgMatch[0] : null;
+
+    // 3. 清理文字：移除指令 AND 移除 SVG 代碼 (避免打字機打出原始碼)
+    let cleanText = rawText.replace(cmdRegex, "").replace(svgRegex, "").trim();
 
     // 建立訊息框
     const msgDiv = document.createElement('div');
     msgDiv.className = 'ai-msg typing-cursor';
     displayContainer.appendChild(msgDiv);
 
-    // 打字機特效 (看起來比較猛)
+    // 打字機特效
     let i = 0;
-    const speed = 20; // 改這邊可以調打字速度
+    const speed = 20;
 
     function type() {
         if (i < cleanText.length) {
@@ -427,9 +661,28 @@ function processAiResponse(rawText, displayContainer) {
             setTimeout(type, speed);
         } else {
             msgDiv.classList.remove('typing-cursor');
-            msgDiv.innerHTML = marked.parse(cleanText); // 打完字才轉 Markdown 不然格式會跑掉 tm剛剛跑掉觘
+            msgDiv.innerHTML = marked.parse(cleanText);
+
+            // 如果有 SVG，渲染它
+            if (svgCode) {
+                // 簡單的防呆：確保 SVG 有 xmlns (雖然瀏覽器通常寬容)
+                if (!svgCode.includes("xmlns")) {
+                    svgCode = svgCode.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+                }
+                const svgContainer = document.createElement('div');
+                svgContainer.className = 'svg-container';
+                svgContainer.style.marginTop = '10px';
+                svgContainer.style.border = '1px solid var(--accent)';
+                svgContainer.style.borderRadius = '8px';
+                svgContainer.style.padding = '10px';
+                svgContainer.style.background = 'rgba(0,0,0,0.3)';
+                svgContainer.innerHTML = svgCode;
+                msgDiv.appendChild(svgContainer);
+            }
+
             executeCommands(commands);
             speak(cleanText);
+            displayContainer.scrollTop = displayContainer.scrollHeight;
         }
     }
     type();
@@ -448,8 +701,63 @@ function executeCommands(commands) {
             searchMusic();
         }
         if (action === "SAY") speak(param);
+        if (action === "GENIMG") generateImage(param);
     });
 }
+
+// ================= Image Generation (Pollinations.ai) 觘用不了 要API KEY =================
+function generateImage(prompt) {
+    const display = document.getElementById('chat-box');
+    const imgId = "gen-img-" + Date.now();
+
+    // 顯示生成中訊息
+    display.innerHTML += `
+        <div class="ai-msg">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <i class="fas fa-palette fa-spin"></i>
+                <span>正在生成影像資料: ${prompt}...</span>
+            </div>
+        </div>
+    `;
+    display.scrollTop = display.scrollHeight;
+
+
+    const seed = Math.floor(Math.random() * 1000000);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?nologo=true&seed=${seed}`;
+
+    fetch(imageUrl)
+        .then(response => {
+            if (!response.ok) {
+                if (response.status === 401 || response.status === 402) {
+                    throw new Error(`Quota/Auth Error (${response.status})`);
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            const objectUrl = URL.createObjectURL(blob);
+            display.innerHTML += `
+                <div class="ai-msg">
+                    <strong>[SYSTEM]</strong> 影像生成完畢：<br>
+                    <img src="${objectUrl}" style="max-width: 100%; border-radius: 10px; border: 2px solid cyan; box-shadow: 0 0 10px cyan;" alt="${prompt}">
+                    <br><small style="color:gray;">Prompt: ${prompt}</small>
+                </div>
+            `;
+            display.scrollTop = display.scrollHeight;
+        })
+        .catch(e => {
+            console.error("Image Generation Error:", e);
+            display.innerHTML += `
+                <div class="ai-msg" style="color: red; border: 1px solid red; padding: 10px;">
+                    <strong>[SYSTEM]</strong> 影像生成失敗 (${e.message})<br>
+                    <small>請檢查網路連線或稍後再試。</small>
+                </div>
+            `;
+            display.scrollTop = display.scrollHeight;
+        });
+}
+
 // ==============================================================
 //下方覽教你不用管//:)
 function switchView(viewId) {
@@ -463,6 +771,6 @@ function initChart() {
     const ctx = document.getElementById('mainChart').getContext('2d');
     chart = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ label: 'Temp', borderColor: '#fff', data: [] }, { label: 'Humi', borderColor: '#0ea5e9', data: [] }, { label: 'Rain', borderColor: '#8b5cf6', data: [] }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { grid: { color: '#222' } } } } });
 }
-function writeLog(msg) { const p = document.getElementById('sys-log'); p.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`; p.scrollTop = p.scrollHeight; }
+function writeLog(msg) { const p = document.getElementById('sys-log'); p.innerHTML += `< div > [${new Date().toLocaleTimeString()}] ${msg}</div > `; p.scrollTop = p.scrollHeight; }
 function uiClick() { const a = new (window.AudioContext || window.webkitAudioContext)(); const o = a.createOscillator(); const g = a.createGain(); o.connect(g); g.connect(a.destination); o.frequency.value = 1200; g.gain.value = 0.05; o.start(); o.stop(a.currentTime + 0.05); }
 function handleKey(e) { if (e.key === 'Enter') askJarvis(); }
