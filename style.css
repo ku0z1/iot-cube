@@ -25,7 +25,6 @@ body {
   display: flex;
 }
 
-/* CRT 掃描線效果 */
 body::before {
   content: " ";
   display: block;
@@ -301,7 +300,6 @@ body::before {
   color: var(--accent);
 }
 
-/* 這裡是在做那個假掰的打字機特效 XD */
 .typing-cursor::after {
   content: '▋';
   display: inline-block;
@@ -322,7 +320,6 @@ body::before {
   }
 }
 
-/* 思考中的動畫，就只是個轉圈圈 */
 .thinking {
   color: var(--text-dim);
   font-style: italic;
@@ -572,7 +569,76 @@ body::before {
   border-radius: 4px;
 }
 
+
 .form-input:focus {
   border-color: var(--accent);
   outline: none;
+}
+
+.tactical-select {
+  background-color: #222;
+  color: #fff;
+  border: 1px solid #444;
+  padding: 6px 12px;
+  font-family: 'Microsoft JhengHei', sans-serif;
+  font-size: 0.9rem;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tactical-select:hover {
+  background-color: #333;
+  border-color: #666;
+}
+
+.tactical-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 5px rgba(16, 185, 129, 0.3);
+}
+
+.tactical-select option {
+  background-color: #222;
+  color: #fff;
+  padding: 10px;
+}
+
+.thinking-box {
+  align-self: flex-start;
+  max-width: 80%;
+  margin-bottom: 5px;
+  font-size: 0.85rem;
+}
+
+.thinking-box summary {
+  cursor: pointer;
+  color: #888;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.thinking-box summary::before {
+  content: '▸';
+  display: inline-block;
+  transition: transform 0.2s;
+}
+
+.thinking-box[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.thinking-content {
+  margin-top: 5px;
+  padding: 10px;
+  background: #111;
+  border-left: 2px solid #444;
+  color: #aaa;
+  border-radius: 4px;
+  font-family: 'Consolas', monospace;
+  white-space: pre-wrap;
+  line-height: 1.4;
 }
